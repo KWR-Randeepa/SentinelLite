@@ -149,46 +149,53 @@ def store_alerts(
             now = datetime.now(timezone.utc).isoformat()
 
             connection.execute("""
-                INSERT INTO alerts (
-                    fingerprint,
-                    rule_name,
-                    severity,
-                    source_ip,
-                    source_ips,
-                    usernames,
-                    first_seen,
-                    last_seen,
-                    failed_attempts,
-                    description,
-                    created_at,
-                    updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                
+INSERT INTO alerts (
+    fingerprint,
+    rule_name,
+    severity,
+    source_ip,
+    source_ips,
+    usernames,
+    first_seen,
+    last_seen,
+    failed_attempts,
+    description,
+    created_at,
+    updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
-                ON CONFLICT(fingerprint) DO UPDATE SET
+ON CONFLICT(fingerprint) DO UPDATE SET
 
-                    first_seen = MIN(
-                        alerts.first_seen,
-                        excluded.first_seen
-                    ),
+    first_seen = MIN(
+        alerts.first_seen,
+        excluded.first_seen
+    ),
 
-                    last_seen = MAX(
-                        alerts.last_seen,
-                        excluded.last_seen
-                    ),
+    last_seen = MAX(
+        alerts.last_seen,
+        excluded.last_seen
+    ),
 
-                    failed_attempts = MAX(
-                        alerts.failed_attempts,
-                        excluded.failed_attempts
-                    ),
+    failed_attempts = MAX(
+        alerts.failed_attempts,
+        excluded.failed_attempts
+    ),
 
-                    severity = excluded.severity,
-                    description = excluded.description,
+    severity = excluded.severity,
+    description = excluded.description,
 
-                    occurrence_count =
-                        alerts.occurrence_count + 1,
+    occurrence_count =
+        alerts.occurrence_count +
+        CASE
+            WHEN excluded.last_seen > alerts.last_seen
+            THEN 1
+            ELSE 0
+        END,
 
-                    updated_at = excluded.updated_at
+    updated_at = excluded.updated_at
+
             """, (
                 fingerprint,
                 alert.rule_name,

@@ -76,8 +76,25 @@ def test_duplicate_alerts_are_merged(tmp_path):
     results = get_alerts(db)
 
     assert len(results) == 1
-    assert results[0]["occurrence_count"] == 2
+    assert results[0]["occurrence_count"] == 1
 
+
+def test_new_observation_increments_occurrence_count(tmp_path):
+
+    db = tmp_path / "alerts.db"
+
+    first = make_alert()
+    second = make_alert()
+
+    second.last_seen = BASE_TIME + timedelta(minutes=10)
+
+    store_alerts([first], db)
+    store_alerts([second], db)
+
+    results = get_alerts(db)
+
+    assert len(results) == 1
+    assert results[0]["occurrence_count"] == 2
 
 def test_filter_alerts_by_severity(tmp_path):
 
