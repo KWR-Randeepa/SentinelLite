@@ -3,12 +3,16 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from sentinellite.models import SecurityEvent
+from sentinellite.models import SecurityEvent,IPReputation
 from sentinellite.detector import (
     detect_brute_force,
     detect_password_spraying,
     detect_distributed_brute_force,
     detect_suspicious_login_after_failures,
+)
+from sentinellite.threat_intel import (
+    load_ip_reputation,
+    analyze_ip_reputation,
 )
 
 
@@ -450,3 +454,134 @@ def test_invalid_suspicious_login_time_window():
             [],
             window_minutes=0,
         )
+
+
+def create_intelligence_file(tmp_path, content):
+    file_path = tmp_path / "ip_reputation.csv"
+    file_path.write_text(content, encoding="utf-8")
+    return file_path
+
+
+def test_load_ip_reputation_database(tmp_path):
+    content = (
+        "ip_address,reputation,confidence,source,last_seen\n"
+        "203.0.113.10,malicious,95,TestFeed,2026-10-30T12:00:00\n"
+        "198.51.100.23,suspicious,70,TestFeed,2026-10-29T12:00:00\n"
+        "192.0.2.15,clean,90,TestFeed,2026-10-30T12:00:00\n"
+    )
+
+    path = create_intelligence_file(tmp_path, content)
+    indicators = load_ip_reputation(path)
+
+    assert len(indicators) == 3
+    assert indicators[0].reputation == "malicious"
+    assert indicators[0].confidence == 95
+
+
+def test_detect_malicious_ip():
+    indicators = [
+        IPReputation(
+            ip_address="203.0.113.10",
+            reputation="malicious",
+            confidence=95,
+            source="TestFeed",
+            last_seen=BASE_TIME,
+        )
+    ]
+
+    events = [
+        make_event(0, source_ip="203.0.113.10")
+    ]
+
+    alerts = analyze_ip_reputation(events, indicators)
+
+    assert len(alerts) == 1
+    assert alerts[0].severity == "HIGH"
+    assert alerts[0].rule_name == "THREAT-INTEL-IP-001"
+
+
+def test_detect_suspicious_ip():
+    indicators = [
+        IPReputation(
+            ip_address="198.51.100.23",
+            reputation="suspicious",
+            confidence=70,
+            source="TestFeed",
+            last_seen=BASE_TIME,
+        )
+    ]
+
+    events = [
+        make_event(0, source_ip="198.51.100.23")
+    ]
+
+    alerts = analyze_ip_reputation(events, indicators)
+
+    assert len(alerts) == 1
+    assert alerts[0].severity == "MEDIUM"
+
+
+def test_clean_ip_should_not_trigger_alert():
+    indicators = [
+        IPReputation(
+            ip_address="192.0.2.15",
+            reputation="clean",
+            confidence=90,
+            source="TestFeed",
+            last_seen=BASE_TIME,
+        )
+    ]
+
+    events = [
+        make_event(0, source_ip="192.0.2.15")
+    ]
+
+    alerts = analyze_ip_reputation(events, indicators)
+
+    assert len(alerts) == 0
+
+
+def test_unknown_ip_should_not_trigger_alert():
+    events = [
+        make_event(0, source_ip="203.0.113.99")
+    ]
+
+    alerts = analyze_ip_reputation(events, [])
+
+    assert len(alerts) == 0
+
+
+def test_invalid_ip_in_intelligence_database(tmp_path):
+    content = (
+        "ip_address,reputation,confidence,source,last_seen\n"
+        "999.999.999.999,malicious,95,TestFeed,2026-10-30T12:00:00\n"
+    )
+
+    path = create_intelligence_file(tmp_path, content)
+
+    with pytest.raises(ValueError):
+        load_ip_reputation(path)
+
+
+def test_invalid_confidence_should_raise_error(tmp_path):
+    content = (
+        "ip_address,reputation,confidence,source,last_seen\n"
+        "203.0.113.10,malicious,150,TestFeed,2026-10-30T12:00:00\n"
+    )
+
+    path = create_intelligence_file(tmp_path, content)
+
+    with pytest.raises(ValueError):
+        load_ip_reputation(path)
+
+
+def test_invalid_reputation_should_raise_error(tmp_path):
+    content = (
+        "ip_address,reputation,confidence,source,last_seen\n"
+        "203.0.113.10,unknown,95,TestFeed,2026-10-30T12:00:00\n"
+    )
+
+    path = create_intelligence_file(tmp_path, content)
+
+    with pytest.raises(ValueError):
+        load_ip_reputation(path)

@@ -23,3 +23,12 @@ class SecurityAlert:
     rule_name: str
     description: str
     source_ips: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class IPReputation:
+    ip_address: str
+    reputation: str
+    confidence: int
+    source: str
+    last_seen: datetime
