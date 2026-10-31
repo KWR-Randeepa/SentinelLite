@@ -1,149 +1,196 @@
-
-# SentinelLite 🛡️
-
+#  SentinelLite
 ### Lightweight Security Monitoring & Threat Detection Platform
 
-SentinelLite is a Python-based cybersecurity project designed to analyze authentication logs, identify suspicious login behavior, and detect potential brute-force attacks.
+**SentinelLite** is a Python-based security monitoring prototype designed to analyze authentication logs, identify suspicious login activity, detect common authentication attacks, and manage security alerts through a centralized SOC dashboard.
 
-The project demonstrates practical cybersecurity concepts, Python programming, security log analysis, threat detection, and automated testing.
+Built as a hands-on cybersecurity portfolio project, SentinelLite demonstrates practical Blue Team concepts, security event analysis, threat intelligence, incident management, and automated testing.
 
-## 🎯 Project Objectives
+##  Key Features
 
-- Analyze authentication security logs.
-- Detect repeated failed login attempts.
-- Identify suspicious source IP addresses.
-- Generate structured security alerts.
-- Reduce false-positive detections through testing.
-- Build a foundation for a lightweight SOC monitoring platform.
+### Threat Detection
+- Brute-force attack detection
+- Password spraying detection
+- Distributed brute-force detection
+- Suspicious login sequence detection
+- IP reputation analysis
 
-## 🚀 Current Features
+### Security Alert Management
+- Centralized alert collection
+- Severity classification
+- Duplicate alert handling
+- SQLite-based alert storage
+- Incident status tracking
+- Alert filtering and investigation
 
-- CSV authentication log parser.
-- Structured security event model.
-- IP-based brute-force detection.
-- Configurable detection threshold.
-- Configurable time window.
-- HIGH severity security alerts.
-- Automated unit testing with Pytest.
+### SOC Dashboard
+- Security overview and KPI metrics
+- Alert severity visualization
+- Incident status monitoring
+- Security alert investigation
+- Incident status management
 
-## 🛠️ Technologies
+##  Technology Stack
 
 | Technology | Purpose |
 |---|---|
-| Python | Core application |
+| Python | Core development |
 | Pandas | Data analysis |
-| Streamlit | Planned dashboard |
-| SQLite | Planned event storage |
+| Streamlit | SOC dashboard |
+| SQLite | Alert storage |
 | Pytest | Automated testing |
-| Git | Version control |
+| Git & GitHub | Version control |
 
-## 🏗️ Project Architecture
+##  Project Architecture
 
 ```text
 SentinelLite/
-├── src/
-│   └── sentinellite/
-│       ├── __init__.py
-│       ├── models.py
-│       ├── log_parser.py
-│       └── detector.py
+│
+├── .streamlit/
+│   └── config.toml
+│
 ├── dashboard/
 │   └── app.py
-├── rules/
+│
+├── src/
+│   └── sentinellite/
+│       ├── models.py
+│       ├── log_parser.py
+│       ├── detector.py
+│       ├── threat_intel.py
+│       ├── alert_manager.py
+│       └── pipeline.py
+│
 ├── sample_logs/
-│   └── authentication.csv
+│   ├── authentication.csv
+│   └── ip_reputation.csv
+│
 ├── tests/
-│   └── test_detector.py
+│   ├── test_detector.py
+│   └── test_alert_manager.py
+│
+├── data/
 ├── docs/
 ├── screenshots/
-├── pytest.ini
+│
 ├── requirements.txt
+├── pytest.ini
 ├── .gitignore
 └── README.md
 ```
 
-## 🔍 Detection Logic
+## 🔍 Detection Capabilities
 
-Current detection rule:
+| Detection Rule | Description |
+|---|---|
+| AUTH-BRUTE-FORCE-001 | Repeated failed login attempts |
+| AUTH-PASSWORD-SPRAY-001 | Multiple accounts targeted from one IP |
+| AUTH-DISTRIBUTED-BRUTE-FORCE-001 | Multiple IPs targeting one account |
+| AUTH-SUSPICIOUS-LOGIN-AFTER-FAILURES-001 | Successful login following repeated failures |
+| THREAT-INTEL-IP-001 | IP reputation matching |
 
-- Event type: Login
-- Status: Failed
-- Threshold: 5 attempts
-- Time window: 5 minutes
-- Grouping: Source IP
-- Alert severity: HIGH
+##  Installation & Setup
 
-Rule identifier:
-
-`AUTH-BRUTE-FORCE-001`
-
-## 💻 Installation
-
-Clone the repository:
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/SentinelLite.git
+git clone https://github.com/KWR-Randeepa/SentinelLite.git
 cd SentinelLite
 ```
 
-Create a virtual environment:
+### 2. Create a virtual environment
 
 ```bash
 python -m venv .venv
 ```
 
-Activate on Windows PowerShell:
+### 3. Activate the environment (Windows)
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-Install dependencies:
+### 4. Install dependencies
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-## 🧪 Run Tests
+### 5. Run automated tests
 
 ```bash
 python -m pytest -v
 ```
 
-## 🔐 Security Testing
+### 6. Launch the SOC dashboard
 
-The project currently includes automated tests for:
+```bash
+python -m streamlit run dashboard/app.py
+```
 
-- Brute-force detection.
-- Failed login thresholds.
-- Successful login filtering.
-- Time-window validation.
-- Multiple source IP addresses.
-- Unsorted authentication events.
-- Invalid detection configurations.
+Open:
 
-## 📊 Development Roadmap
+```text
+http://localhost:8501
+```
 
-- [x] Project structure and environment setup
-- [x] Security event data model
-- [x] Authentication log parser
-- [x] Brute-force detection engine
-- [x] Automated detection tests
-- [ ] Additional threat detection rules
-- [ ] SQLite event storage
-- [ ] Streamlit SOC dashboard
-- [ ] MITRE ATT&CK mapping
-- [ ] Incident reporting
-- [ ] Docker deployment
+##  Security Monitoring Workflow
 
-## ⚠️ Disclaimer
+1. Load authentication logs from CSV.
+2. Parse and validate security events.
+3. Execute threat detection algorithms.
+4. Compare observed IPs against local reputation indicators.
+5. Generate structured security alerts.
+6. Store and manage alerts using SQLite.
+7. Investigate incidents through the Streamlit dashboard.
 
-SentinelLite is an educational cybersecurity project.
+##  Testing
 
-It uses synthetic security logs for testing and demonstration. It is not a replacement for enterprise SIEM platforms or production security monitoring systems.
+SentinelLite uses Pytest to validate:
 
-## 👨‍💻 Author
+- Detection thresholds
+- Time-window calculations
+- Multiple source IP analysis
+- Username-based attack detection
+- Suspicious login sequences
+- IP reputation validation
+- Duplicate alert handling
+- Alert filtering and status updates
 
-Developed as a hands-on cybersecurity learning and portfolio project.
+##  Screenshots
 
-**Focus Areas:** Cybersecurity | Python | Blue Team | Threat Detection | Security Monitoring
+Dashboard screenshots will be added to the `screenshots/` directory.
+
+Planned screenshots:
+- Security overview
+- Security alerts
+- Incident management
+
+##  Limitations
+
+SentinelLite is an educational cybersecurity prototype.
+
+- Uses CSV-based batch log analysis.
+- Uses a simulated local IP reputation dataset.
+- Does not currently provide continuous live monitoring.
+- Does not replace enterprise SIEM platforms.
+- Detection alerts are investigation indicators, not proof of compromise.
+
+##  Learning Objectives
+
+This project demonstrates practical experience with:
+
+- Cybersecurity fundamentals
+- Blue Team security monitoring
+- Authentication log analysis
+- Threat detection engineering
+- IP reputation analysis
+- Security alert management
+- Python application development
+- Database integration
+- Automated software testing
+
+
+Cybersecurity Enthusiast
+
+GitHub: https://github.com/KWR-Randeepa
+
