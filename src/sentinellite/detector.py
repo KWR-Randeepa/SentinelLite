@@ -198,3 +198,103 @@ def detect_password_spraying(
         alerts,
         key=lambda alert: alert.first_seen
     )
+
+def detect_distributed_brute_force(
+    events: Iterable[SecurityEvent],
+    ip_threshold: int = 5,
+    window_minutes: int = 10,
+) -> list[SecurityAlert]:
+    """
+    Detect failed login attempts against the same
+    username from multiple distinct source IPs.
+    """
+
+    if ip_threshold < 2:
+        raise ValueError(
+            "IP threshold must be at least 2."
+        )
+
+    if window_minutes <= 0:
+        raise ValueError(
+            "Window must be greater than 0."
+        )
+
+    failed_by_username = defaultdict(list)
+
+    # Group failed login events by username.
+    for event in events:
+        if (
+            event.event_type == "login"
+            and event.status == "failed"
+        ):
+            failed_by_username[event.username].append(event)
+
+    alerts = []
+    time_window = timedelta(minutes=window_minutes)
+
+    # Analyze each target account independently.
+    for username, user_events in failed_by_username.items():
+
+        user_events.sort(
+            key=lambda event: event.timestamp
+        )
+
+        left = 0
+        ip_counts = defaultdict(int)
+
+        for right, event in enumerate(user_events):
+
+            ip_counts[event.source_ip] += 1
+
+            # Remove events outside the time window.
+            while (
+                event.timestamp
+                - user_events[left].timestamp
+                > time_window
+            ):
+                old_ip = user_events[left].source_ip
+
+                ip_counts[old_ip] -= 1
+
+                if ip_counts[old_ip] == 0:
+                    del ip_counts[old_ip]
+
+                left += 1
+
+            # Count unique source IP addresses.
+            if len(ip_counts) >= ip_threshold:
+
+                matched_events = user_events[left:right + 1]
+
+                source_ips = tuple(
+                    sorted(ip_counts.keys())
+                )
+
+                alert = SecurityAlert(
+                    source_ip="MULTIPLE",
+                    first_seen=matched_events[0].timestamp,
+                    last_seen=event.timestamp,
+                    failed_attempts=len(matched_events),
+                    usernames=(username,),
+                    severity="HIGH",
+                    rule_name=(
+                        "AUTH-DISTRIBUTED-BRUTE-FORCE-001"
+                    ),
+                    description=(
+                        f"Detected distributed brute-force "
+                        f"activity against account '{username}' "
+                        f"from {len(source_ips)} distinct IP "
+                        f"addresses within {window_minutes} minutes."
+                    ),
+                    source_ips=source_ips,
+                )
+
+                alerts.append(alert)
+
+                # One alert per username per analysis.
+                break
+
+    return sorted(
+        alerts,
+        key=lambda alert: alert.first_seen
+    )

@@ -198,3 +198,126 @@ def test_successful_logins_should_not_trigger_spraying():
     alerts = detect_password_spraying(events)
 
     assert len(alerts) == 0
+
+from sentinellite.detector import (
+    detect_brute_force,
+    detect_password_spraying,
+    detect_distributed_brute_force,
+)
+
+def test_detect_distributed_brute_force():
+    events = [
+        make_event(
+            i,
+            source_ip=f"203.0.113.{i + 10}",
+            username="admin",
+        )
+        for i in range(5)
+    ]
+
+    alerts = detect_distributed_brute_force(events)
+
+    assert len(alerts) == 1
+    assert alerts[0].severity == "HIGH"
+    assert alerts[0].failed_attempts == 5
+    assert len(alerts[0].source_ips) == 5
+    assert alerts[0].usernames == ("admin",)
+    assert alerts[0].rule_name == (
+        "AUTH-DISTRIBUTED-BRUTE-FORCE-001"
+    )
+
+
+def test_four_unique_ips_should_not_trigger_alert():
+    events = [
+        make_event(
+            i,
+            source_ip=f"203.0.113.{i + 10}",
+            username="admin",
+        )
+        for i in range(4)
+    ]
+
+    alerts = detect_distributed_brute_force(events)
+
+    assert len(alerts) == 0
+
+
+def test_repeated_same_ip_should_not_trigger_distributed_alert():
+    events = [
+        make_event(
+            i,
+            source_ip="203.0.113.10",
+            username="admin",
+        )
+        for i in range(6)
+    ]
+
+    alerts = detect_distributed_brute_force(events)
+
+    assert len(alerts) == 0
+
+
+def test_distributed_attempts_outside_time_window():
+    events = [
+        make_event(
+            minute,
+            source_ip=f"203.0.113.{index + 10}",
+            username="admin",
+        )
+        for index, minute in enumerate([0, 2, 4, 6, 12])
+    ]
+
+    alerts = detect_distributed_brute_force(events)
+
+    assert len(alerts) == 0
+
+
+def test_successful_logins_should_not_trigger_distributed_alert():
+    events = [
+        make_event(
+            i,
+            source_ip=f"203.0.113.{i + 10}",
+            username="admin",
+            status="success",
+        )
+        for i in range(5)
+    ]
+
+    alerts = detect_distributed_brute_force(events)
+
+    assert len(alerts) == 0
+
+
+def test_different_usernames_should_be_analyzed_separately():
+    events = []
+
+    for i in range(3):
+        events.append(
+            make_event(
+                i,
+                source_ip=f"203.0.113.{i + 10}",
+                username="admin",
+            )
+        )
+
+        events.append(
+            make_event(
+                i,
+                source_ip=f"198.51.100.{i + 10}",
+                username="manager",
+            )
+        )
+
+    alerts = detect_distributed_brute_force(events)
+
+    assert len(alerts) == 0
+
+
+def test_invalid_distributed_ip_threshold():
+    with pytest.raises(ValueError):
+        detect_distributed_brute_force([], ip_threshold=1)
+
+
+def test_invalid_distributed_time_window():
+    with pytest.raises(ValueError):
+        detect_distributed_brute_force([], window_minutes=0)

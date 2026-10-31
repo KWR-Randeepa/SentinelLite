@@ -22,3 +22,4 @@ class SecurityAlert:
     severity: str
     rule_name: str
     description: str
+    source_ips: tuple[str, ...] = ()
