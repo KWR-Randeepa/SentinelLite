@@ -7,6 +7,8 @@ from sentinellite.models import SecurityEvent
 from sentinellite.detector import (
     detect_brute_force,
     detect_password_spraying,
+    detect_distributed_brute_force,
+    detect_suspicious_login_after_failures,
 )
 
 
@@ -321,3 +323,130 @@ def test_invalid_distributed_ip_threshold():
 def test_invalid_distributed_time_window():
     with pytest.raises(ValueError):
         detect_distributed_brute_force([], window_minutes=0)
+
+
+
+def test_detect_suspicious_login_after_failures():
+    events = [
+        make_event(i, username="admin")
+        for i in range(5)
+    ]
+
+    events.append(
+        make_event(5, username="admin", status="success")
+    )
+
+    alerts = detect_suspicious_login_after_failures(events)
+
+    assert len(alerts) == 1
+    assert alerts[0].severity == "HIGH"
+    assert alerts[0].failed_attempts == 5
+    assert alerts[0].usernames == ("admin",)
+    assert alerts[0].rule_name == (
+        "AUTH-SUSPICIOUS-LOGIN-AFTER-FAILURES-001"
+    )
+
+
+def test_four_failed_attempts_followed_by_success_no_alert():
+    events = [
+        make_event(i, username="admin")
+        for i in range(4)
+    ]
+
+    events.append(
+        make_event(5, username="admin", status="success")
+    )
+
+    alerts = detect_suspicious_login_after_failures(events)
+
+    assert len(alerts) == 0
+
+
+def test_success_outside_time_window_should_not_alert():
+    events = [
+        make_event(i, username="admin")
+        for i in range(5)
+    ]
+
+    events.append(
+        make_event(15, username="admin", status="success")
+    )
+
+    alerts = detect_suspicious_login_after_failures(events)
+
+    assert len(alerts) == 0
+
+
+def test_different_ips_should_not_be_combined():
+    events = [
+        make_event(
+            i,
+            source_ip="203.0.113.10",
+            username="admin",
+        )
+        for i in range(3)
+    ]
+
+    events.extend([
+        make_event(
+            i,
+            source_ip="198.51.100.20",
+            username="admin",
+        )
+        for i in range(3)
+    ])
+
+    events.append(
+        make_event(
+            5,
+            source_ip="203.0.113.10",
+            username="admin",
+            status="success",
+        )
+    )
+
+    alerts = detect_suspicious_login_after_failures(events)
+
+    assert len(alerts) == 0
+
+
+def test_successful_login_without_previous_failures():
+    events = [
+        make_event(i, status="success")
+        for i in range(5)
+    ]
+
+    alerts = detect_suspicious_login_after_failures(events)
+
+    assert len(alerts) == 0
+
+
+def test_unsorted_events_should_still_be_detected():
+    events = [
+        make_event(5, status="success"),
+        make_event(3),
+        make_event(1),
+        make_event(4),
+        make_event(0),
+        make_event(2),
+    ]
+
+    alerts = detect_suspicious_login_after_failures(events)
+
+    assert len(alerts) == 1
+
+
+def test_invalid_suspicious_login_threshold():
+    with pytest.raises(ValueError):
+        detect_suspicious_login_after_failures(
+            [],
+            threshold=1,
+        )
+
+
+def test_invalid_suspicious_login_time_window():
+    with pytest.raises(ValueError):
+        detect_suspicious_login_after_failures(
+            [],
+            window_minutes=0,
+        )

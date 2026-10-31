@@ -1,5 +1,5 @@
 
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import timedelta
 from collections.abc import Iterable
 
@@ -293,6 +293,111 @@ def detect_distributed_brute_force(
 
                 # One alert per username per analysis.
                 break
+
+    return sorted(
+        alerts,
+        key=lambda alert: alert.first_seen
+    )
+
+
+def detect_suspicious_login_after_failures(
+    events: Iterable[SecurityEvent],
+    threshold: int = 5,
+    window_minutes: int = 10,
+) -> list[SecurityAlert]:
+    """
+    Detect successful logins following repeated failed
+    attempts from the same source IP against the same user.
+
+    Default rule:
+    5 or more failed attempts followed by success
+    within a 10-minute lookback window.
+    """
+
+    if threshold < 2:
+        raise ValueError(
+            "Threshold must be at least 2."
+        )
+
+    if window_minutes <= 0:
+        raise ValueError(
+            "Window must be greater than 0."
+        )
+
+    events_by_identity = defaultdict(list)
+
+    # Group authentication events by IP and username.
+    for event in events:
+        if (
+            event.event_type == "login"
+            and event.status in {"failed", "success"}
+        ):
+            identity = (
+                event.source_ip,
+                event.username,
+            )
+
+            events_by_identity[identity].append(event)
+
+    alerts = []
+    time_window = timedelta(minutes=window_minutes)
+
+    # Analyze each IP and username combination.
+    for (source_ip, username), auth_events in (
+        events_by_identity.items()
+    ):
+
+        auth_events.sort(
+            key=lambda event: event.timestamp
+        )
+
+        failed_window = deque()
+
+        for event in auth_events:
+
+            if event.status == "failed":
+                failed_window.append(event)
+
+            elif event.status == "success":
+
+                # Remove failed attempts outside the window.
+                while (
+                    failed_window
+                    and event.timestamp
+                    - failed_window[0].timestamp
+                    > time_window
+                ):
+                    failed_window.popleft()
+
+                # Check whether enough failures preceded success.
+                if len(failed_window) >= threshold:
+
+                    matched_events = list(failed_window)
+
+                    alert = SecurityAlert(
+                        source_ip=source_ip,
+                        first_seen=matched_events[0].timestamp,
+                        last_seen=event.timestamp,
+                        failed_attempts=len(matched_events),
+                        usernames=(username,),
+                        severity="HIGH",
+                        rule_name=(
+                            "AUTH-SUSPICIOUS-LOGIN-AFTER-FAILURES-001"
+                        ),
+                        description=(
+                            f"Successful login for '{username}' "
+                            f"from {source_ip} followed "
+                            f"{len(matched_events)} failed "
+                            f"login attempts within "
+                            f"{window_minutes} minutes."
+                        ),
+                        source_ips=(source_ip,),
+                    )
+
+                    alerts.append(alert)
+
+                    # One alert per IP and username per analysis.
+                    break
 
     return sorted(
         alerts,
