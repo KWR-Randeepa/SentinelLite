@@ -70,7 +70,7 @@ SentinelLite/
 │
 ├── data/
 ├── docs/
-├── screenshots/
+|
 │
 ├── requirements.txt
 ├── pytest.ini
@@ -155,15 +155,6 @@ SentinelLite uses Pytest to validate:
 - IP reputation validation
 - Duplicate alert handling
 - Alert filtering and status updates
-
-##  Screenshots
-
-Dashboard screenshots will be added to the `screenshots/` directory.
-
-Planned screenshots:
-- Security overview
-- Security alerts
-- Incident management
 
 ##  Limitations
 
